@@ -89,14 +89,19 @@
     color: #333;
   }
 
-  .d1-label {
+  .district-label {
     background: none;
     border: none;
     box-shadow: none;
+    padding: 0;
     font-weight: 700;
-    font-size: 13px;
-    color: var(--district1-color);
-    text-shadow: 0 0 3px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.9);
+    font-size: 11px;
+    white-space: nowrap;
+    text-shadow: 0 0 3px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.95);
+  }
+
+  .d1-label {
+    font-size: 15px;
   }
 
   @media (max-width: 480px) {
@@ -172,20 +177,45 @@ function isDistrict1(feature) {
   return String(feature.properties.district) === '1';
 }
 
+// Distinct color per district. District 1 is controlled by the
+// --district1-color CSS variable above so it stays your "brand" color;
+// districts 2-8 each get their own fixed color from this palette.
+// Swap any hex value below if you want a different look for a district.
+const districtColors = {
+  '2': '#4E79A7', // blue
+  '3': '#59A14F', // green
+  '4': '#B07AA1', // purple
+  '5': '#EDC948', // yellow
+  '6': '#76B7B2', // teal
+  '7': '#E15759', // red
+  '8': '#FF9DA7'  // pink
+};
+
+function colorForDistrict(feature) {
+  if (isDistrict1(feature)) {
+    return getComputedStyle(document.documentElement).getPropertyValue('--district1-color').trim();
+  }
+  return districtColors[String(feature.properties.district)] || '#2F6FED';
+}
+
 function styleForFeature(feature) {
-  const css = getComputedStyle(document.documentElement);
-  const d1 = css.getPropertyValue('--district1-color').trim();
-  const other = css.getPropertyValue('--default-color').trim();
-  return isDistrict1(feature)
-    ? { color: d1, weight: 4.5, opacity: 1, fillColor: d1, fillOpacity: 0.18 }
-    : { color: other, weight: 3, opacity: 0.95, fillColor: other, fillOpacity: 0.15 };
+  const color = colorForDistrict(feature);
+  const isD1 = isDistrict1(feature);
+  return {
+    color: color,
+    weight: isD1 ? 5 : 3,
+    opacity: isD1 ? 1 : 0.9,
+    fillColor: color,
+    fillOpacity: isD1 ? 0.2 : 0.16
+  };
 }
 
 function highlight(e) {
   const layer = e.target;
+  const isD1 = isDistrict1(layer.feature);
   layer.setStyle({
-    weight: isDistrict1(layer.feature) ? 6 : 4.5,
-    fillOpacity: isDistrict1(layer.feature) ? 0.32 : 0.28
+    weight: isD1 ? 6.5 : 4.5,
+    fillOpacity: isD1 ? 0.34 : 0.28
   });
   layer.bringToFront();
 }
@@ -197,19 +227,22 @@ function resetHighlight(e) {
 function onEachDistrict(feature, layer) {
   const d = feature.properties.district;
   const member = feature.properties.member || 'TBD';
+  const color = colorForDistrict(feature);
+  const isD1 = isDistrict1(feature);
 
   layer.bindPopup(
     `<div class="popup-title">District ${d}</div><div class="popup-member">Councilmember: ${member}</div>`,
     { closeButton: true, maxWidth: 220 }
   );
 
-  if (isDistrict1(feature)) {
-    layer.bindTooltip('District 1', {
+  layer.bindTooltip(
+    `<span style="color:${color}">District ${d}</span>`,
+    {
       permanent: true,
       direction: 'center',
-      className: 'd1-label'
-    });
-  }
+      className: isD1 ? 'district-label d1-label' : 'district-label'
+    }
+  );
 
   layer.on({
     mouseover: highlight,
